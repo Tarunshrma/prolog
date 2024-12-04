@@ -4,7 +4,7 @@
 PROTO_DIR=api/v1
 
 # Output directory for the generated Go files
-OUT_DIR=protos/v1
+OUT_DIR=api/v1
 
 # List of .proto files
 PROTO_FILES=$(wildcard $(PROTO_DIR)/*.proto)
