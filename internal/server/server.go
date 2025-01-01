@@ -1,6 +1,11 @@
 package server
 
-import "context"
+import (
+	"context"
+
+	api "github.com/Tarunshrma/prolog/api/v1"
+	"google.golang.org/grpc"
+)
 
 type Config struct {
 	CommitLog CommitLog
@@ -8,9 +13,25 @@ type Config struct {
 
 var _ api.LogServer = (*grpcServer)(nil)
 
+func NewGRPCServer(config *Config) (*grpc.Server, error) {
+	srv := grpc.NewServer()
+	s, err := newgrpcServer(config)
+	if err != nil {
+		return nil, err
+	}
+
+	api.RegisterLogServer(srv, s)
+	return srv, nil
+}
+
 type grpcServer struct {
 	api.UnimplementedLogServer
 	*Config
+}
+
+type CommitLog interface {
+	Append(*api.Record) (uint64, error)
+	Read(uint64) (*api.Record, error)
 }
 
 func newgrpcServer(config *Config) (srv *grpcServer, err error) {
