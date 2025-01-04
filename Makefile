@@ -17,6 +17,8 @@ proto:
 		--proto_path=$(PROTO_DIR) \
 		--go_out=$(OUT_DIR) \
 		--go_opt=paths=source_relative \
+		--go-grpc_opt=paths=source_relative \
+		--go-grpc_out=$(OUT_DIR) \
 		$(PROTO_FILES)
 
 # Clean up generated files
