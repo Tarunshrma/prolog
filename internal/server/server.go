@@ -13,7 +13,20 @@ type Config struct {
 
 var _ api.LogServer = (*grpcServer)(nil)
 
-func NewGRPCServer(config *Config) (*grpc.Server, error) {
+func NewGRPCServer(config *Config, grpcOpts ...grpc.ServerOption) (*grpc.Server, error) {
+
+	// logger := zap.L().Named("server")
+	// zapOpts := []grpc.ServerOption{
+	// 	grpc_zap.WithDurationField(
+	// 		func(duration time.Duration) zapcore.Field {
+	// 			return zap.Int64(
+	// 				"grpc.time_ns",
+	// 				duration.Nanoseconds(),
+	// 			)
+	// 		},
+	// 	),
+	// }
+
 	srv := grpc.NewServer()
 	s, err := newgrpcServer(config)
 	if err != nil {
