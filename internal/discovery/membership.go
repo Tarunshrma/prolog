@@ -38,7 +38,7 @@ type Config struct {
 }
 
 func (m *Membership) setupSerf() error {
-	addr, err := net.ResolveTCPAddr("tcp", m.BindAddr)
+	addr, err := net.ResolveTCPAddr("tcp", m.Config.BindAddr)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,10 @@ func (m *Membership) setupSerf() error {
 	config.Init()
 	config.MemberlistConfig.BindAddr = addr.IP.String()
 	config.MemberlistConfig.BindPort = addr.Port
+
+	//Is this step really needed, I am already setting the event channel in constructor
 	m.events = make(chan serf.Event)
+
 	config.EventCh = m.events
 	config.NodeName = m.NodeName
 	config.Tags = m.Tags
