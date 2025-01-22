@@ -85,10 +85,10 @@ func (a *Agent) setupServer() error {
 		CommitLog: a.log,
 	}
 
-	var opts []grpc.ServerOption
+	//var opts []grpc.ServerOption
 
 	var err error
-	a.server, err = server.NewGRPCServer(serverConfig, opts...)
+	a.server, err = server.NewGRPCServer(serverConfig)
 	if err != nil {
 		return err
 	}
