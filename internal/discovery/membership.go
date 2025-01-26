@@ -3,6 +3,7 @@ package discovery
 import (
 	"net"
 
+	"github.com/hashicorp/raft"
 	"github.com/hashicorp/serf/serf"
 	"go.uber.org/zap"
 )
@@ -101,14 +102,14 @@ func (m *Membership) eventHandler() {
 func (m *Membership) handleJoin(member serf.Member) {
 	m.logger.Info("Node joined", zap.String("name", member.Name), zap.String("addr", member.Addr.String()))
 	if err := m.handler.Join(member.Name, member.Tags["rpc_addrs"]); err != nil {
-		m.logger.Error("Failed to handle join", zap.Error(err))
+		m.logError(err, "Failed to handle join", member)
 	}
 }
 
 func (m *Membership) handleLeave(member serf.Member) {
 	m.logger.Info("Node left", zap.String("name", member.Name), zap.String("addr", member.Addr.String()))
 	if err := m.handler.Leave(member.Name); err != nil {
-		m.logger.Error("Failed to handle leave", zap.Error(err))
+		m.logError(err, "Failed to handle leave", member)
 	}
 }
 
@@ -122,4 +123,15 @@ func (m *Membership) Members() []serf.Member {
 
 func (m *Membership) Leave() error {
 	return m.serf.Leave()
+}
+
+func (m *Membership) logError(err error, msg string, member serf.Member) {
+	log := m.logger.Error
+	if err == raft.ErrNotLeader {
+		log = m.logger.Debug
+	}
+	log(msg,
+		zap.Error(err),
+		zap.String("name", member.Name),
+		zap.String("rpc_addr", member.Tags["rpc_addr"]))
 }

@@ -163,6 +163,67 @@ func (l *DistributedLog) apply(reqType RequestType, req proto.Message) (interfac
 func (l *DistributedLog) Read(offset uint64) (*Record, error) {
 	return l.log.Read(offset)
 }
+
+func (l *DistributedLog) Join(id, addr string) error {
+	configFuture := l.raft.GetConfiguration()
+	if err := configFuture.Error(); err != nil {
+		return err
+	}
+
+	serverID := raft.ServerID(id)
+	serverAddr := raft.ServerAddress(addr)
+
+	for _, srv := range configFuture.Configuration().Servers {
+		if srv.ID == serverID || srv.Address == serverAddr {
+			// Already joined
+			if srv.ID == serverID && srv.Address == serverAddr {
+				return nil
+			}
+			removeFuture := l.raft.RemoveServer(srv.ID, 0, 0)
+			if err := removeFuture.Error(); err != nil {
+				return err
+			}
+		}
+	}
+
+	addFuture := l.raft.AddVoter(serverID, serverAddr, 0, 0)
+	if err := addFuture.Error(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (l *DistributedLog) Leave(id string) error {
+	removeFuture := l.raft.RemoveServer(raft.ServerID(id), 0, 0)
+	return removeFuture.Error()
+}
+
+func (l *DistributedLog) WaitForLeader(timeout time.Duration) error {
+	timeoutCh := time.After(timeout)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeoutCh:
+			return fmt.Errorf("timed out waiting for raft leader")
+		case <-ticker.C:
+			if l.raft.Leader() != "" {
+				return nil
+			}
+		}
+	}
+}
+
+func (l *DistributedLog) Close() string {
+	f := l.raft.Shutdown()
+	if err := f.Error(); err != nil {
+		return err
+	}
+	return l.log.Close()
+}
+
+
 var _ raft.FSM = (*fsm)(nil)
 
 type fsm struct {
