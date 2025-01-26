@@ -1,7 +1,9 @@
 package log
 
 import (
+	"bytes"
 	"io"
+	"net"
 	"path/filepath"
 	"time"
 
@@ -315,4 +317,65 @@ func (s *logStore) StoreLogs(logs []*raft.Log) error {
 
 func (s *logStore) DeleteRange(min, max uint64) error {
 	return s.Truncate(min)
+}
+
+type StreamLayer interface {
+	net.Listener
+
+	// Dial is used to establish a connection to a remote address
+	Dial(address ServerAddress, timeout time.Duration) (net.Conn, error)
+}
+
+var _ raft.StreamLayer = (*streamLayer)(nil)
+
+type StreamLayer struct {
+	ln net.Listener
+}
+
+func NewStreamLayer(ln net.Listener) StreamLayer {
+	return &StreamLayer{ln: ln}
+}
+
+const RaftRPC = 1
+
+func (s *StreamLayer) Dial(address raft.ServerAddress, timeout time.Duration) (net.Conn, error) {
+	dialer := &net.Dialer{Timeout: timeout}
+	var conn, err = dialer.Dial("tcp", string(address))
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = conn.Write([]byte{byte(RaftRPC)})
+	if err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
+func (s *StreamLayer) Accept() (net.Conn, error) {
+	conn , err := s.ln.Accept()
+	if err != nil {
+		return nil, err
+	}
+
+	b := make([]byte, 1)
+	_, err = conn.Read(b)
+	if err != nil {
+		return nil, err
+	}
+
+	if bytes.Compare(b, []byte{byte(RaftRPC)}) != 0 {
+		return nil, fmt.Errorf("expected Raft RPC but got %v", b)
+	}
+
+	return conn, nil
+}
+
+func (s *StreamLayer) Close() error {
+	return s.ln.Close()
+}
+
+func (s *StreamLayer) Addr() net.Addr {
+	return s.ln.Addr()
 }
