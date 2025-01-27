@@ -2,12 +2,16 @@ package log
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net"
+	"os"
 	"path/filepath"
 	"time"
 
+	api "github.com/Tarunshrma/prolog/log/api/v1"
 	"github.com/hashicorp/raft"
+	"google.golang.org/protobuf/proto"
 )
 
 type DistributedLog struct {
@@ -16,8 +20,7 @@ type DistributedLog struct {
 	raft   *raft.Raft
 }
 
-
-func NewDistributedLog(dataDir string. config Config) (*DistributedLog, error) {
+func NewDistributedLog(dataDir string, config Config) (*DistributedLog, error) {
 	l := &DistributedLog{
 		config: config,
 	}
@@ -53,13 +56,13 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 	}
 
 	logConfig := l.config
-	logConfig.Segment.InitialOffset =1
+	logConfig.Segment.InitialOffset = 1
 	logStore, err := newLogStore(logDir, logConfig)
 	if err != nil {
 		return err
 	}
 
-	//Key-value store where where raft store its metadata like current term, voted for etc. 
+	//Key-value store where where raft store its metadata like current term, voted for etc.
 	stableStore, err := raftboltdb.NewBoltStore(filepath.Join(dataDir, "raft", "stable"))
 	if err != nil {
 		return err
@@ -69,8 +72,8 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 
 	//Snapshot store where raft store snapshots
 	snapshotStore, err := raft.NewFileSnapshotStore(
-						filepath.Join(dataDir, "raft"),
-						retain, os.Stderr)
+		filepath.Join(dataDir, "raft"),
+		retain, os.Stderr)
 	if err != nil {
 		return err
 	}
@@ -78,13 +81,13 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 	maxPool := 5
 	timeout := 10 * time.Second
 	transport := raft.NewNetworkTransport(
-					l.config.Raft.StreamLayer, 
-					maxPool, 
-					timeout, 
-					os.Stderr)
+		l.config.Raft.StreamLayer,
+		maxPool,
+		timeout,
+		os.Stderr)
 
 	config := raft.DefaultConfig()
-	config.LocalID = l.config.Raft.LocalID	//raft.ServerID(l.config.Raft.LocalID)
+	config.LocalID = l.config.Raft.LocalID //raft.ServerID(l.config.Raft.LocalID)
 	if l.config.Raft.HeartbeatTimeout != 0 {
 		config.HeartbeatTimeout = l.config.Raft.HeartbeatTimeout
 	}
@@ -96,7 +99,7 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 	}
 	if l.config.Raft.CommitTimeout != 0 {
 		config.CommitTimeout = l.config.Raft.CommitTimeout
-	}						
+	}
 
 	l.raft, err := raft.NewRaft(config, fsm, logStore, stableStore, snapshotStore, transport)
 	if err != nil {
@@ -116,7 +119,7 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 			},
 		}
 		err = l.raft.BootstrapCluster(config).Error()
-	} 
+	}
 
 	return err
 }
@@ -139,7 +142,7 @@ func (l *DistributedLog) apply(reqType RequestType, req proto.Message) (interfac
 	if err != nil {
 		return nil, err
 	}
-	
+
 	b, err := proto.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -223,7 +226,6 @@ func (l *DistributedLog) Close() string {
 	return l.log.Close()
 }
 
-
 var _ raft.FSM = (*fsm)(nil)
 
 type fsm struct {
@@ -284,12 +286,12 @@ func (s *snapshot) Persist(sink raft.SnapshotSink) error {
 
 func (s *snapshot) Release() {}
 
-func (l *fsm) Restore(r io.ReadCloser) error {	
+func (f *fsm) Restore(r io.ReadCloser) error {
 	b := make([]byte, lenWidth)
 	var buf bytes.Buffer
 
 	for i := 0; ; i++ {
-		_, err := io.ReadFull(r,b)
+		_, err := io.ReadFull(r, b)
 		if err == io.EOF {
 			break
 		}
@@ -307,7 +309,7 @@ func (l *fsm) Restore(r io.ReadCloser) error {
 			return err
 		}
 
-		if i ==0 {
+		if i == 0 {
 			f.log.Config.Segment.InitialOffset = record.Offset
 			if err = f.log.Reset(); err != nil {
 				return err
@@ -330,7 +332,7 @@ type logStore struct {
 	*Log
 }
 
-fun newLogStore(dir string, config Config) (*logStore, error) {
+func newLogStore(dir string, config Config) (*logStore, error) {
 	l, err := NewLog(dir, config)
 	if err != nil {
 		return nil, err
@@ -366,9 +368,9 @@ func (s *logStore) StoreLog(log *raft.Log) error {
 func (s *logStore) StoreLogs(logs []*raft.Log) error {
 	for _, l := range logs {
 		if _, err := s.Append(&Record{
-			Term: l.Term,
+			Term:  l.Term,
 			Value: l.Data,
-			Type: uint32(l.Type),
+			Type:  uint32(l.Type),
 		}); err != nil {
 			return err
 		}
@@ -387,7 +389,7 @@ type StreamLayer interface {
 	Dial(address ServerAddress, timeout time.Duration) (net.Conn, error)
 }
 
-var _ raft.StreamLayer = (*streamLayer)(nil)
+var _ raft.StreamLayer = (*StreamLayer)(nil)
 
 type StreamLayer struct {
 	ln net.Listener
@@ -415,7 +417,7 @@ func (s *StreamLayer) Dial(address raft.ServerAddress, timeout time.Duration) (n
 }
 
 func (s *StreamLayer) Accept() (net.Conn, error) {
-	conn , err := s.ln.Accept()
+	conn, err := s.ln.Accept()
 	if err != nil {
 		return nil, err
 	}
