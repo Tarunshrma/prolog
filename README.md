@@ -32,6 +32,15 @@ The project is structured to follow the progressive development of a distributed
 
 To get started with the project, clone this repository and follow the instructions in each section of the codebase. Make sure you have Go installed and set up on your machine.
 
+## Extra
+make sure you run below command Install command:
+
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc export PATH=$PATH:$(go env GOPATH)/bin
+
+Install package... go get google.golang.org/grpc/cmd/protoc-gen-go-grpc
+
+use require_unimplemented_servers flag in protoc command to avoid unimplemented method error
+
 ## Contributing
 
 Contributions are welcome! If you find any issues or have suggestions for improvement, please open an issue or a pull request.
@@ -39,3 +48,4 @@ Contributions are welcome! If you find any issues or have suggestions for improv
 ## License
 
 This project is licensed under the [MIT License](link_to_license).
+

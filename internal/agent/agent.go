@@ -83,6 +83,7 @@ func (a *Agent) setupLog() error {
 func (a *Agent) setupServer() error {
 	serverConfig := &server.Config{
 		CommitLog: a.log,
+		GetServer: a.log,
 	}
 
 	//var opts []grpc.ServerOption

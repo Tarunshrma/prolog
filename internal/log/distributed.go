@@ -167,6 +167,24 @@ func (l *DistributedLog) Read(offset uint64) (*Record, error) {
 	return l.log.Read(offset)
 }
 
+func (l *DistributedLog) GetServers() ([]*api.Server, error) {
+	future := l.raft.GetConfiguration()
+	if err := future.Error(); err != nil {
+		return nil, err
+	}
+
+	var servers []*api.Server
+	for _, srv := range future.Configuration().Servers {
+		servers = append(servers, &api.Server{
+			Id:       string(srv.ID),
+			RpcAddr:  string(srv.Address),
+			IsLeader: l.raft.Leader() == srv.Address,
+		})
+	}
+
+	return servers, nil
+}
+
 func (l *DistributedLog) Join(id, addr string) error {
 	configFuture := l.raft.GetConfiguration()
 	if err := configFuture.Error(); err != nil {
